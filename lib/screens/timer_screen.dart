@@ -140,7 +140,7 @@ class _TimerScreenState extends State<TimerScreen> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          scrollable: true,
+          scrollable: true, // Klavye açılınca taşmayı önler
           title: const Text("Manuel Aktivite Ekle"),
           content: StatefulBuilder(
             builder: (context, setDialogState) {
@@ -150,6 +150,8 @@ class _TimerScreenState extends State<TimerScreen> {
                   children: [
                     const Text("Sayacı açmayı unuttun mu? Sorun değil."),
                     const SizedBox(height: 15),
+                    
+                    // Ders Seçimi
                     DropdownButtonFormField<String>(
                       value: localSelectedLesson,
                       hint: const Text("Ders Seçiniz"),
@@ -158,6 +160,8 @@ class _TimerScreenState extends State<TimerScreen> {
                       decoration: const InputDecoration(border: OutlineInputBorder()),
                     ),
                     const SizedBox(height: 10),
+                    
+                    // Süre Girişi
                     TextField(
                       controller: durationController,
                       keyboardType: TextInputType.number,
@@ -172,16 +176,30 @@ class _TimerScreenState extends State<TimerScreen> {
             },
           ),
           actions: [
+            // İPTAL BUTONU
             TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
+              onPressed: () => Navigator.pop(dialogContext), // Sadece Dialog'u kapatır
               child: const Text("İptal"),
             ),
+            
+            // EKLE BUTONU 
             ElevatedButton(
               onPressed: () async {
-                if (localSelectedLesson == null || durationController.text.isEmpty) return;
-                int minutes = int.tryParse(durationController.text) ?? 0;
-                if (minutes <= 0) return;
+                // 1. Validasyonlar
+                if (localSelectedLesson == null) {
+                   ScaffoldMessenger.of(dialogContext).showSnackBar(const SnackBar(content: Text("Lütfen ders seçin")));
+                   return;
+                }
+                if (durationController.text.trim().isEmpty) return;
 
+                // 2. Sayı Çevirme Hatasını Önleme (tryParse)
+                int? minutes = int.tryParse(durationController.text.trim());
+                if (minutes == null || minutes <= 0) {
+                   ScaffoldMessenger.of(dialogContext).showSnackBar(const SnackBar(content: Text("Geçerli bir süre giriniz")));
+                   return;
+                }
+
+                // 3. Firebase'e Kaydetme
                 User? user = FirebaseAuth.instance.currentUser;
                 if (user != null) {
                   await FirebaseFirestore.instance.collection('study_sessions').add({
@@ -191,16 +209,24 @@ class _TimerScreenState extends State<TimerScreen> {
                     'date': Timestamp.now(),
                   });
 
-                  if (!mounted) return;
-                  Navigator.pop(dialogContext);
-                  Navigator.pop(context);
-                  
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Aktivite eklendi! 🎉"),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
+                 
+                  // İşlem bitince ekran hala orada mı kontrol et
+                  if (!mounted) return; 
+
+                  // Önce Dialog penceresini kapat
+                  Navigator.of(dialogContext).pop(); 
+
+                  // Sonra (Eğer istersen) Timer ekranından çıkıp ana ekrana dön
+                  if (mounted) {
+                    Navigator.of(context).pop(); 
+                    
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text("Aktivite başarıyla eklendi! 🎉"),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
                 }
               },
               child: const Text("EKLE"),
@@ -292,3 +318,4 @@ class _TimerScreenState extends State<TimerScreen> {
     );
   }
 }
+
