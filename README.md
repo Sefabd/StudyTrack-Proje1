@@ -1,16 +1,21 @@
-# study_track
+# StudyTrack
 
-A new Flutter project.
+ Öğrencileri için geliştirilmiş, çalışma süresi takip ve motivasyon uygulaması.
 
-## Getting Started
+**Kullanılan Teknolojiler**
+- Flutter (Dart)
+- Firebase Authentication (Giriş/Kayıt)
+- Cloud Firestore (Veritabanı)
 
-This project is a starting point for a Flutter application.
+**Özellikler**
+- Çalışma süresi sayacı (Kronometre)
+- Haftalık çalışma istatistikleri (Grafik)
+- Günlük hedef belirleme
+- Topluluk ve durum paylaşımı
 
-A few resources to get you started if this is your first Flutter project:
+**Kurulum**
+Projeyi indirdikten sonra terminalde şu komutları çalıştırın:
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```bash
+flutter pub get
+flutter run
