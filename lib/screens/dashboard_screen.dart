@@ -1,12 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import '../services/auth_service.dart';
 import 'timer_screen.dart';
 import 'stats_screen.dart';
 import 'community_screen.dart';
 import 'profile_screen.dart';
-import 'login_screen.dart';
+
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -27,200 +26,271 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("StudyTrack"),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await AuthService().signOut();
-              if (mounted) {
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (context) => const LoginScreen()),
-                  (route) => false,
-                );
-              }
-            },
-          )
-        ],
-      ),
-      // 1. KATMAN: KULLANICI BİLGİLERİNİ ÇEKİYOR
+      backgroundColor: const Color(0xFFF5F7FA), 
       body: StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance.collection('users').doc(user!.uid).snapshots(),
         builder: (context, userSnapshot) {
           if (userSnapshot.hasError) return const Center(child: Text("Hata oluştu"));
-          if (userSnapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+          if (userSnapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
           var userData = userSnapshot.data!.data() as Map<String, dynamic>;
           String name = userData['name'] ?? 'Öğrenci';
-          
-          // GÜNLÜK VE HAFTALIK HEDEFİ ÇEKİYORUZ
-          int dailyGoal = userData['dailyGoalMinutes'] ?? 60; 
-          
+          int dailyGoal = userData['dailyGoalMinutes'] ?? 60;
 
-          return Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("Merhaba, $name 👋", style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 20),
-                
-                // 2. KATMAN: BUGÜNKÜ ÇALIŞMALARI ÇEKİP TOPLUYORUZ
-                StreamBuilder<QuerySnapshot>(
-                  stream: FirebaseFirestore.instance
-                      .collection('study_sessions')
-                      .where('userId', isEqualTo: user!.uid)
-                      .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(getStartOfToday()))
-                      .snapshots(),
-                  builder: (context, sessionSnapshot) {
-                    
-                    int workedToday = 0;
+          // BUGÜNKÜ ÇALIŞMALARI HESAPLA
+          return StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('study_sessions')
+                .where('userId', isEqualTo: user!.uid)
+                .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(getStartOfToday()))
+                .snapshots(),
+            builder: (context, sessionSnapshot) {
+              int workedToday = 0;
+              if (sessionSnapshot.hasData) {
+                for (var doc in sessionSnapshot.data!.docs) {
+                  workedToday += (doc['durationMinutes'] as num).toInt();
+                }
+              }
 
-                    if (sessionSnapshot.hasData) {
-                      var docs = sessionSnapshot.data!.docs;
-                      for (var doc in docs) {
-                        workedToday += (doc['durationMinutes'] as num).toInt();
-                      }
-                    }
-                    
-                    // Yüzde Hesabı 
-                    double percent = (dailyGoal == 0 ? 0 : workedToday / dailyGoal);
-                    if (percent > 1.0) percent = 1.0; 
+              // Yüzde Hesabı
+              double percent = (dailyGoal == 0 ? 0 : workedToday / dailyGoal);
+              if (percent > 1.0) percent = 1.0;
 
-                    // ÖZET KARTI 
-                    return Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Colors.indigo.shade500, Colors.indigo.shade800],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [BoxShadow(color: Colors.indigo.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5))],
-                      ),
-                      child: Row(
+              return SafeArea(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // --- 1. ÜST BAŞLIK (HEADER) ---
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          // SOL TARAFTAKİ HALKA
-                          Stack(
-                            alignment: Alignment.center,
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              SizedBox(
-                                width: 80,
-                                height: 80,
-                                child: CircularProgressIndicator(
-                                  value: percent,
-                                  strokeWidth: 8,
-                                  color: Colors.white,
-                                  backgroundColor: Colors.white24,
-                                ),
+                              Row(
+                                children: [
+                                  Text(
+                                    "Selam, $name",
+                                    style: const TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF1A1A2E),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Text("👋", style: TextStyle(fontSize: 24)),
+                                ],
                               ),
-                              Text(
-                                "%${(percent * 100).toInt()}",
-                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                              const SizedBox(height: 5),
+                              const Text(
+                                "Bugün hedeflerini parçala!",
+                                style: TextStyle(color: Colors.grey, fontSize: 14),
                               ),
                             ],
                           ),
-                          const SizedBox(width: 20),
-                          
-                          // SAĞ TARAFTAKİ BİLGİLER
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text("Bugünkü Çalışman", style: TextStyle(color: Colors.white70, fontSize: 14)),
-                                const SizedBox(height: 5),
-                                Text("$workedToday dk", style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)),
-                                const SizedBox(height: 8),
-                                // HEDEF BİLGİSİ KUTUSU
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.2),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(Icons.flag, color: Colors.white, size: 14),
-                                      const SizedBox(width: 5),
-                                      Text(
-                                        "Hedef: $dailyGoal dk", 
-                                        style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
+                          // Profil Fotoğrafı (Avatar)
+                          GestureDetector(
+                            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen())),
+                            child: CircleAvatar(
+                              radius: 25,
+                              backgroundColor: Colors.blue.shade100,
+                              backgroundImage: const NetworkImage("https://cdn-icons-png.flaticon.com/512/4140/4140048.png"), 
                             ),
                           ),
                         ],
                       ),
-                    );
-                  },
-                ),
-                
-                const SizedBox(height: 30),
-                const Text("Hızlı Menü", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 10),
 
-                // Menü Butonları 
-                Expanded(
-                  child: GridView.count(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 15,
-                    mainAxisSpacing: 15,
-                    children: [
-                      _buildMenuCard(icon: Icons.timer, title: "Çalışmaya Başla", color: Colors.orange, onTap: () {
-                        Navigator.push(context, MaterialPageRoute(builder: (context) => const TimerScreen()));
-                      }),
-                      _buildMenuCard(icon: Icons.bar_chart, title: "İstatistikler", color: Colors.purple, onTap: () {
-                        Navigator.push(context, MaterialPageRoute(builder: (context) => const StatsScreen()));
-                      }),
-                      _buildMenuCard(icon: Icons.group, title: "Topluluk", color: Colors.blue, onTap: () {
-                        Navigator.push(context, MaterialPageRoute(builder: (context) => const CommunityScreen()));
-                      }),
-                      _buildMenuCard(icon: Icons.person, title: "Profil", color: Colors.teal, onTap: () {
-                          Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen()));
-                      }),
+                      const SizedBox(height: 30),
+
+                      // --- 2. HEDEF KARTI 
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(25),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1A1A2E), 
+                          borderRadius: BorderRadius.circular(30),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF1A1A2E).withOpacity(0.4),
+                              blurRadius: 15,
+                              offset: const Offset(0, 10),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  "Günlük Hedef",
+                                  style: TextStyle(color: Colors.white70, fontSize: 16),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(Icons.emoji_events, color: Color(0xFFFFD369), size: 20), 
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 15),
+                            
+                            // Sayılar
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  "$workedToday",
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 48,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 8.0, left: 5),
+                                  child: Text(
+                                    "/ $dailyGoal dk",
+                                    style: const TextStyle(color: Colors.white38, fontSize: 18),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            
+                            const SizedBox(height: 20),
+
+                            // Progress Bar
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: LinearProgressIndicator(
+                                value: percent,
+                                minHeight: 8,
+                                backgroundColor: Colors.white.withOpacity(0.1),
+                                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFE94560)), 
+                              ),
+                            ),
+                            
+                            const SizedBox(height: 10),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: Text(
+                                "%${(percent * 100).toInt()} Tamamlandı",
+                                style: const TextStyle(color: Color(0xFFE94560), fontWeight: FontWeight.bold, fontSize: 12),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 30),
+                      
+                      const Text(
+                        "Menü",
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1A1A2E)),
+                      ),
+                      
+                      const SizedBox(height: 15),
+
+                      //  3. MENÜ GRİD 
+                      GridView.count(
+                        shrinkWrap: true, // ScrollView içinde olduğu için gerekli
+                        physics: const NeverScrollableScrollPhysics(), // Scroll çakışmasını önler
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 20,
+                        mainAxisSpacing: 20,
+                        childAspectRatio: 1.1, // Kutuların kareye yakın olması için
+                        children: [
+                          _buildMenuCard(
+                            title: "İstatistikler",
+                            icon: Icons.bar_chart_rounded,
+                            iconBgColor: const Color(0xFFE0E7FF), 
+                            iconColor: const Color(0xFF4338CA), 
+                            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const StatsScreen())),
+                          ),
+                          _buildMenuCard(
+                            title: "Topluluk",
+                            icon: Icons.group_rounded,
+                            iconBgColor: const Color(0xFFE1F5FE), 
+                            iconColor: const Color(0xFF0288D1), 
+                            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CommunityScreen())),
+                          ),
+                          _buildMenuCard(
+                            title: "Profilim",
+                            icon: Icons.person_rounded,
+                            iconBgColor: const Color(0xFFFFF3E0), 
+                            iconColor: const Color(0xFFEF6C00), 
+                            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen())),
+                          ),
+                          _buildMenuCard(
+                            title: "Çalışmaya Başla",
+                            icon: Icons.play_arrow_rounded,
+                            iconBgColor: const Color(0xFFFFEBEE), 
+                            iconColor: const Color(0xFFD32F2F), 
+                            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const TimerScreen())),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
-                )
-              ],
-            ),
+                ),
+              );
+            },
           );
         },
       ),
     );
   }
 
-  Widget _buildMenuCard({required IconData icon, required String title, required Color color, required VoidCallback onTap}) {
-    return InkWell(
+  // YARDIMCI WIDGET: MENÜ KARTI 
+  Widget _buildMenuCard({
+    required String title,
+    required IconData icon,
+    required Color iconBgColor,
+    required Color iconColor,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.grey.shade200),
+          borderRadius: BorderRadius.circular(20),
           boxShadow: [
-            BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 5, offset: const Offset(0, 3))
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 5),
+            ),
           ],
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(15),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                shape: BoxShape.circle,
+                color: iconBgColor,
+                borderRadius: BorderRadius.circular(15),
               ),
-              child: Icon(icon, size: 32, color: color),
+              child: Icon(icon, color: iconColor, size: 30),
             ),
-            const SizedBox(height: 12),
-            Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+            const SizedBox(height: 15),
+            Text(
+              title,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: Color(0xFF1A1A2E),
+              ),
+            ),
           ],
         ),
       ),
