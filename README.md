@@ -19,3 +19,6 @@ Projeyi indirdikten sonra terminalde şu komutları çalıştırın:
 ```bash
 flutter pub get
 flutter run
+
+veya
+app-release.zip dosyasını indirip apk olarak kurun
